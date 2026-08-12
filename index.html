@@ -801,10 +801,11 @@ let startPoint=null;
 function drag(e){
   if(!isDragging||!holdingBird)return;
   const p=toWorld(e);
-  let dx=holdingBird.position.x-p.x,dy=holdingBird.position.y-p.y;
+  let nx=p.x, ny=p.y;
+  let dx=nx-SLING_X, dy=ny-(SLING_Y-18);
   const len=Math.hypot(dx,dy);
-  if(len>MAX_DRAG){dx=dx/len*MAX_DRAG;dy=dy/len*MAX_DRAG;}
-  let nx=SLING_X-dx,ny=SLING_Y-18-dy;
+  if(len>MAX_DRAG){nx=SLING_X+dx/len*MAX_DRAG; ny=(SLING_Y-18)+dy/len*MAX_DRAG;}
+  if(nx>SLING_X)nx=SLING_X;
   const minY=GROUND_Y-(holdingBird.circleRadius||20)-6;
   if(ny>minY)ny=minY;
   Body.setPosition(holdingBird,{x:nx,y:ny});
@@ -818,8 +819,7 @@ function release(e){
   const dx=SLING_X-holdingBird.position.x,dy=SLING_Y-18-holdingBird.position.y;
   const len=Math.hypot(dx,dy);
   if(len<14){Body.setPosition(holdingBird,{x:SLING_X,y:SLING_Y-18});return;}
-  const force=Math.min(1,len/MAX_DRAG);
-  const vx=dx*LAUNCH_FORCE*force,vy=dy*LAUNCH_FORCE*force;
+  const vx=dx*LAUNCH_FORCE,vy=dy*LAUNCH_FORCE;
   const b=holdingBird;
   Body.setVelocity(b,{x:vx,y:vy});
   holdingBird=null;
@@ -1070,8 +1070,7 @@ function drawTrajectory(){
   const dx=SLING_X-holdingBird.position.x,dy=SLING_Y-18-holdingBird.position.y;
   const len=Math.hypot(dx,dy);
   if(len<14)return;
-  const force=Math.min(1,len/MAX_DRAG);
-  let vx=dx*LAUNCH_FORCE*force,vy=dy*LAUNCH_FORCE*force;
+  let vx=dx*LAUNCH_FORCE,vy=dy*LAUNCH_FORCE;
   let x=holdingBird.position.x,y=holdingBird.position.y;
   for(let i=0;i<14;i++){
     x+=vx*0.9;vy+=GRAV*0.9;y+=vy*0.9;
