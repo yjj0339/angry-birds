@@ -102,6 +102,21 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b1a2a;font-family:
 #birdQueue .b{transition:transform .2s}
 #birdQueue .b.gone{transform:scale(0)}
 #confetti{position:fixed;inset:0;z-index:121;pointer-events:none}
+.shopPanel{max-width:560px}
+.selStats{display:flex;justify-content:center;gap:22px;margin-bottom:12px;font-size:15px;color:rgba(255,255,255,.85);letter-spacing:1px;flex-wrap:wrap}
+.selStats b{color:#ffd36b;font-size:18px}
+.shopCoinLine{font-size:16px;color:rgba(255,255,255,.85);margin-bottom:14px;letter-spacing:1px}
+.shopCoinLine b{color:#ffd36b;font-size:20px}
+.shopTitle{font-size:24px;font-weight:900;letter-spacing:6px;margin-bottom:16px;color:#ffd36b}
+#shopItems{display:flex;flex-direction:column;gap:12px}
+.shopItem{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;border-radius:16px;border:1px solid rgba(255,255,255,.25);background:linear-gradient(170deg,rgba(255,255,255,.14),rgba(255,255,255,.05));text-align:left}
+.shopItem .siName{font-size:17px;font-weight:800;letter-spacing:1px}
+.shopItem .siDesc{font-size:12px;color:rgba(255,255,255,.7);margin-top:3px}
+.shopItem .siLvl{font-size:11px;color:#7ee08a;margin-top:3px}
+.shopItem.max .siLvl{color:#ffd36b}
+.shopItem button{flex-shrink:0;padding:9px 18px;border:none;border-radius:30px;font-size:15px;font-weight:800;cursor:pointer;background:linear-gradient(180deg,#ffb347,#ff7a3d);color:#fff;box-shadow:0 6px 16px rgba(255,120,40,.4)}
+.shopItem button:disabled{background:linear-gradient(180deg,#999,#777);box-shadow:none;cursor:not-allowed;opacity:.7}
+.shopItem.max button{background:linear-gradient(180deg,#5fae6a,#3f8a4a);box-shadow:none}
 </style>
 </head>
 <body>
@@ -139,6 +154,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b1a2a;font-family:
 
 <div class="overlay" id="selectScreen">
   <div class="panel">
+    <div class="selStats"><span>🪙 <b id="selCoins">0</b></span><span>★ <b id="selTotalStars">0</b></span><span>满分 <b id="selTotalScore">0</b></span></div>
     <div id="worldTabs"></div>
     <div id="worldGridWrap">
       <div class="worldName" id="selWorldName">第一境 · 春之绿野</div>
@@ -147,6 +163,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b1a2a;font-family:
     </div>
     <div class="btn-row">
       <button class="btn ghost small" id="backBtn">返回</button>
+      <button class="btn ghost small" id="shopBtn">🪙 商城</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="shopScreen">
+  <div class="panel shopPanel">
+    <div class="shopCoinLine">🪙 金币 <b id="shopCoins">0</b>　·　总分 <b id="shopTotal">0</b></div>
+    <div class="shopTitle">升级商店</div>
+    <div id="shopItems"></div>
+    <div class="btn-row">
+      <button class="btn ghost small" id="shopCloseBtn">返回</button>
     </div>
   </div>
 </div>
@@ -244,7 +272,7 @@ let progress=null;
 let combo=0,comboTimer=0,timeScale=1,timeScaleTarget=1,ambBirds=[],slowmoActive=false,selWorld=0,animT=0,leaves=[];
 
 function $(id){return document.getElementById(id);}
-const el={score: $("scoreVal"),birdQueue:$("birdQueue"),levelTag:$("levelTag"),title:$("titleScreen"),select:$("selectScreen"),result:$("resultScreen"),pause:$("pauseScreen"),grid:$("levelGrid"),rotate:$("rotateHint"),notify:$("notify"),starToast:$("starToast"),musicBtn:$("bgMusicBtn"),hud:$("hud"),flash:$("flash"),combo:$("combo"),resultFace:$("resultFace"),resultTitle:$("resultTitle"),resultScore:$("resultScore"),resultBonus:$("resultBonus"),resultStars:$("resultStars"),nextBtn:$("nextBtn")};
+const el={score: $("scoreVal"),birdQueue:$("birdQueue"),levelTag:$("levelTag"),title:$("titleScreen"),select:$("selectScreen"),result:$("resultScreen"),pause:$("pauseScreen"),grid:$("levelGrid"),rotate:$("rotateHint"),notify:$("notify"),starToast:$("starToast"),musicBtn:$("bgMusicBtn"),hud:$("hud"),flash:$("flash"),combo:$("combo"),resultFace:$("resultFace"),resultTitle:$("resultTitle"),resultScore:$("resultScore"),resultBonus:$("resultBonus"),resultStars:$("resultStars"),nextBtn:$("nextBtn"),shop:$("shopScreen"),shopItems:$("shopItems"),shopCoins:$("shopCoins"),shopTotal:$("shopTotal")};
 
 function notify(msg){el.notify.innerText=msg;el.notify.classList.add("show");clearTimeout(notify._t);notify._t=setTimeout(()=>el.notify.classList.remove("show"),1600);}
 
@@ -393,12 +421,16 @@ function confettiStep(){
 }
 
 function loadProgress(){
-  try{progress=JSON.parse(localStorage.getItem("lingyu")||'{"unlocked":1,"stars":{}}');}
-  catch(e){progress={unlocked:1,stars:{}};}
+  try{progress=JSON.parse(localStorage.getItem("lingyu"));
+    progress.upgrades=Object.assign({bird:0,dmg:0,power:0},progress.upgrades||{});
+    progress.coins=progress.coins||0;progress.totalScore=progress.totalScore||0;
+  }catch(e){progress={unlocked:1,stars:{},coins:0,totalScore:0,upgrades:{bird:0,dmg:0,power:0}};}
 }
 function saveProgress(){
   try{localStorage.setItem("lingyu",JSON.stringify(progress));}catch(e){}
 }
+function launchMult(){return 1+0.08*(progress.upgrades.power||0);}
+function dmgMult(){return 1+0.15*(progress.upgrades.dmg||0);}
 
 function spawnSlider(x,y,size,type){
   const def=birdDef[type];
@@ -510,6 +542,7 @@ function startLevel(n){
   resetWorld();
   const L=buildLevel(n);
   birdQueue=L.birds.slice();
+  for(let u=0;u<(progress.upgrades.bird||0);u++)birdQueue.push("red");
   birdIdx=0;score=0;usedBirds=0;
   pigCount=0;alivePigs=0;
   abilityUsed=false;isDragging=false;
@@ -680,6 +713,7 @@ function activateAbility(){
   if(type==="yellow"){
     const v=b.velocity;
     Body.setVelocity(b,{x:v.x*2.2,y:v.y*2.2});
+    gi.boostTimer=0.6;
     burst(b.position.x,b.position.y,14,"rgba(255,255,255,.8)",3,0.5,3,0.05);
     sfx.whiz();
   }else if(type==="bomb"){
@@ -738,12 +772,15 @@ function endLevel(won){
       const stars=calcStars(total,bestScore);
       const prev=progress.stars[levelNb]||0;
       progress.stars[levelNb]=Math.max(prev,stars);
+      const earned=stars*150+Math.floor(total/2000);
+      progress.coins=(progress.coins||0)+earned;
+      progress.totalScore=(progress.totalScore||0)+total;
       if(levelNb+1>progress.unlocked)progress.unlocked=Math.min(levelNb+1,60);
       saveProgress();
       el.resultFace.innerText="🎉";
       el.resultTitle.innerText="通关成功";
       el.resultScore.innerText=total;
-      el.resultBonus.innerText=(bonus>0?("剩余小鸟奖励 +"+bonus):"");
+      el.resultBonus.innerText=(bonus>0?("剩余小鸟奖励 +"+bonus+""):"")+(earned>0?"｜金币 +"+earned:"");
       renderStars(el.resultStars,stars);
       sfx.winm();
       confettiBurst();
@@ -822,7 +859,7 @@ function release(e){
   const dx=SLING_X-holdingBird.position.x,dy=SLING_Y-18-holdingBird.position.y;
   const len=Math.hypot(dx,dy);
   if(len<14){Body.setPosition(holdingBird,{x:SLING_X,y:SLING_Y-18});return;}
-  const vx=dx*LAUNCH_FORCE,vy=dy*LAUNCH_FORCE;
+  const vx=dx*LAUNCH_FORCE*launchMult(),vy=dy*LAUNCH_FORCE*launchMult();
   const b=holdingBird;
   Body.setStatic(b,false);
   Body.setVelocity(b,{x:vx,y:vy});
@@ -869,6 +906,7 @@ function update(dt){
   for(const b of pigeons.slice()){if(b.speed>1)settleTimer=0;}
   for(const b of destructibles.slice()){if(b.speed>2)settleTimer=0;}
   if(activeBird&&holdingBird){camTo(0);}
+  if(activeBird&&activeBird.game.boostTimer>0)activeBird.game.boostTimer-=(TICK/1000)*timeScale;
   if(holdingBird&&isDragging&&dragTarget){
     const k=0.7;
     const nx=holdingBird.position.x+(dragTarget.x-holdingBird.position.x)*k;
@@ -1081,15 +1119,13 @@ function drawTrajectory(){
   const dx=SLING_X-holdingBird.position.x,dy=SLING_Y-18-holdingBird.position.y;
   const len=Math.hypot(dx,dy);
   if(len<14)return;
-  let vx=dx*LAUNCH_FORCE,vy=dy*LAUNCH_FORCE;
+  let vx=dx*LAUNCH_FORCE*launchMult(),vy=dy*LAUNCH_FORCE*launchMult();
   let x=holdingBird.position.x,y=holdingBird.position.y;
-  for(let i=0;i<14;i++){
-    x+=vx*0.9;vy+=GRAV*0.9;y+=vy*0.9;
-    const fade=1-i/14;
-    ctx.fillStyle="rgba(255,190,90,"+(0.9*fade).toFixed(2)+")";
-    ctx.beginPath();ctx.arc(x,y,(i%2===0?4:3)*fade,0,7);ctx.fill();
-    ctx.fillStyle="rgba(255,255,255,"+(0.5*fade).toFixed(2)+")";
-    ctx.beginPath();ctx.arc(x,y,(i%2===0?2:1.5)*fade,0,7);ctx.fill();
+  ctx.fillStyle="rgba(255,255,255,0.9)";
+  for(let i=0;i<80;i++){
+    x+=vx*0.8;vy+=GRAV*0.8;y+=vy*0.8;
+    if(y>GROUND_Y-4)break;
+    if(i%2===0){ctx.beginPath();ctx.arc(x,y,3,0,7);ctx.fill();}
   }
 }
 
@@ -1133,11 +1169,37 @@ function drawBirdBody(b,type,px,py,angle,sx,sy){
     ctx.quadraticCurveTo(r*0.15,-r*0.8,0,-r*0.68);
     ctx.closePath();ctx.fill();ctx.stroke();
   }
+  if(type==="yellow"){
+    ctx.fillStyle=pal.feather;ctx.strokeStyle=pal.outline;ctx.lineWidth=o;
+    ctx.beginPath();
+    ctx.moveTo(-r*0.05,-r*0.7);
+    ctx.quadraticCurveTo(r*0.02,-r*1.25,r*0.3,-r*1.18);
+    ctx.quadraticCurveTo(r*0.18,-r*0.95,r*0.12,-r*0.62);
+    ctx.closePath();ctx.fill();ctx.stroke();
+  }
+  if(type==="red"){
+    ctx.fillStyle=pal.feather;ctx.strokeStyle=pal.outline;ctx.lineWidth=o;
+    ctx.beginPath();
+    ctx.moveTo(-r*0.35,-r*0.72);
+    ctx.quadraticCurveTo(-r*0.28,-r*1.05,-r*0.05,-r*0.95);
+    ctx.quadraticCurveTo(-r*0.2,-r*0.78,-r*0.2,-r*0.62);
+    ctx.closePath();ctx.fill();ctx.stroke();
+  }
+  if(type==="terence"){
+    ctx.fillStyle=pal.feather;ctx.strokeStyle=pal.outline;ctx.lineWidth=o;
+    ctx.beginPath();
+    ctx.moveTo(-r*0.3,-r*0.68);
+    ctx.quadraticCurveTo(-r*0.22,-r*1.0,r*0.02,-r*0.9);
+    ctx.quadraticCurveTo(-r*0.16,-r*0.74,-r*0.16,-r*0.6);
+    ctx.closePath();ctx.fill();ctx.stroke();
+  }
   if(type==="bomb"){
     ctx.strokeStyle="#ffd36b";ctx.lineWidth=Math.max(2,r*0.09);ctx.lineCap="round";
     ctx.beginPath();ctx.moveTo(0,-r*0.78);ctx.quadraticCurveTo(r*0.3,-r*1.05,r*0.15,-r*1.2);ctx.stroke();
     ctx.fillStyle="#ffd36b";
     ctx.beginPath();ctx.arc(r*0.15,-r*1.2,r*0.1,0,7);ctx.fill();
+    ctx.fillStyle=pal.hi;
+    ctx.beginPath();ctx.ellipse(r*0.3,r*0.42,r*0.2,r*0.14,0,0,7);ctx.fill();
   }
   const by=r*0.1;
   ctx.fillStyle=pal.beakD;
@@ -1325,6 +1387,7 @@ function draw(){
     drawPigBody(b,b.game.size,b.position.x,b.position.y+bob,b.angle);
   }
   if(activeBird&&!activeBird.game.dead){
+    const gi=activeBird.game;
     let bpx=activeBird.position.x,bpy=activeBird.position.y,rot=activeBird.angle,sx=1,sy=1;
     if(holdingBird){
       bpx+=Math.sin(animT*0.12)*1.6;
@@ -1348,6 +1411,19 @@ function draw(){
       ctx.globalAlpha=1;
     }
     drawBirdBody(activeBird,activeBird.game.type,bpx,bpy,rot,sx,sy);
+    if(!holdingBird&&gi&&!gi.abilityUsed&&gi.type!=="red"&&gi.type!=="terence"){
+      const pulse=0.5+0.5*Math.sin(animT*0.18);
+      ctx.strokeStyle="rgba(255,220,110,"+(0.25+0.4*pulse).toFixed(2)+")";
+      ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.arc(bpx,bpy,birdDef[gi.type].r+6+pulse*4,0,7);ctx.stroke();
+      ctx.fillStyle="rgba(255,220,110,"+(0.12+0.2*pulse).toFixed(2)+")";
+      ctx.beginPath();ctx.arc(bpx,bpy,birdDef[gi.type].r+3+pulse*3,0,7);ctx.fill();
+    }
+    if(activeBird.game.boostTimer>0&&!holdingBird){
+      ctx.globalAlpha=0.6;ctx.fillStyle="#fff";
+      ctx.beginPath();ctx.arc(bpx,bpy,8,0,7);ctx.fill();
+      ctx.globalAlpha=1;
+    }
   }
   for(const p of particles){
     ctx.globalAlpha=Math.max(0,p.life/p.max);
@@ -1380,7 +1456,7 @@ function handleBodyHit(hit,other,speed){
   let mult=1;
   if(og&&og.kind==="bird")mult=getBirdMult(og.type,gi.mat||gi.kind);
   if(og&&og.kind==="egg")mult=getBirdMult("white",gi.mat||gi.kind);
-  const dmg=speed*speed*mult;
+  const dmg=speed*speed*mult*dmgMult();
   if(gi.kind==="pig"){
     if(dmg>2){gi.hp-=dmg*(gi.size==="l"?0.85:1);burst(hit.position.x,hit.position.y,6,"#8fd15a",2,0.4,3,0.2);if(gi.hp<=0)destroyObject(hit);}
   }else if(gi.kind==="block"){
@@ -1650,6 +1726,8 @@ function setupUI(){
   $("playBtn").addEventListener("click",()=>{sfx.click();startLevel(progress.unlocked-1);});
   $("selectBtn").addEventListener("click",()=>{sfx.click();openSelect();});
   $("backBtn").addEventListener("click",()=>{sfx.click();el.select.classList.remove("show");el.title.classList.add("show");});
+  $("shopBtn").addEventListener("click",()=>{sfx.click();openShop();});
+  $("shopCloseBtn").addEventListener("click",()=>{sfx.click();el.shop.classList.remove("show");el.select.classList.add("show");});
   $("restartBtn").addEventListener("click",()=>{sfx.click();startLevel(levelNb);});
   $("pauseBtn").addEventListener("click",()=>{sfx.click();levelState="paused";el.pause.classList.add("show");});
   $("resumeBtn").addEventListener("click",()=>{sfx.click();el.pause.classList.remove("show");levelState="play";});
@@ -1673,6 +1751,54 @@ function openSelect(){
   renderWorldGrid(selWorld);
   el.title.classList.remove("show");
   el.select.classList.add("show");
+}
+
+const SHOP_DEF=[
+  {k:"bird",name:"军团援军",desc:"每关额外获得一只红色小鸟",cost:120,max:3,asc:(l)=>("+1 小鸟")},
+  {k:"dmg",name:"裂空之力",desc:"全体小鸟伤害提升 +15%",cost:150,max:3,asc:(l)=>("伤害 +"+(15*l)+"%")},
+  {k:"power",name:"弦上蛮力",desc:"全部发射力度提升 +8%",cost:150,max:3,asc:(l)=>("力度 +"+(8*l)+"%")}
+];
+function openShop(){
+  renderShop();
+  el.select.classList.remove("show");
+  el.shop.classList.add("show");
+}
+function renderShop(){
+  el.shopCoins.innerText=progress.coins||0;
+  el.shopTotal.innerText=progress.totalScore||0;
+  el.shopItems.innerHTML="";
+  for(const it of SHOP_DEF){
+    const lvl=progress.upgrades[it.k]||0;
+    const maxed=lvl>=it.max;
+    const cost=Math.round(it.cost*Math.pow(1.6,lvl));
+    const d=document.createElement("div");
+    d.className="shopItem"+(maxed?" max":"");
+    const info=document.createElement("div");
+    const nm=document.createElement("div");nm.className="siName";nm.innerText=it.name;
+    const de=document.createElement("div");de.className="siDesc";de.innerText=it.desc;
+    const lv=document.createElement("div");lv.className="siLvl";
+    lv.innerText=maxed?("已满级 "+it.asc(lvl)):("Lv."+lvl+" → "+it.asc(lvl+1));
+    info.append(nm,de,lv);
+    const btn=document.createElement("button");
+    btn.innerText=maxed?"已满级":("升级 "+cost+" 🪙");
+    btn.disabled=maxed||(progress.coins||0)<cost;
+    btn.onclick=()=>buyUpgrade(it.k,btn);
+    d.append(info,btn);
+    el.shopItems.appendChild(d);
+  }
+}
+function buyUpgrade(k,btn){
+  const it=SHOP_DEF.find(x=>x.k===k);
+  const lvl=progress.upgrades[k]||0;
+  if(lvl>=it.max)return;
+  const cost=Math.round(it.cost*Math.pow(1.6,lvl));
+  if((progress.coins||0)<cost){notify("金币不足");return;}
+  progress.coins-=cost;
+  progress.upgrades[k]=lvl+1;
+  saveProgress();
+  sfx.click();
+  renderShop();
+  notify(it.name+" 升级成功！");
 }
 
 function renderWorldTabs(){
@@ -1701,6 +1827,10 @@ function renderWorldGrid(wi){
   const done=Object.keys(progress.stars).filter(k=>Math.floor(k/12)===wi&&progress.stars[k]>0).length;
   document.getElementById("selWorldName").innerText="第 "+(wi+1)+"境 · "+w.name;
   document.getElementById("selWorldSub").innerText="通关 "+done+" / 12 关 · "+w.sub;
+  let ts=0;for(const k in progress.stars)ts+=progress.stars[k];
+  $("selCoins").innerText=progress.coins||0;
+  $("selTotalStars").innerText=ts;
+  $("selTotalScore").innerText=(progress.totalScore||0).toLocaleString();
   el.grid.innerHTML="";
   for(let i=0;i<60;i++){
     if(Math.floor(i/12)!==wi)continue;
