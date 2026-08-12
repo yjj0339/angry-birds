@@ -190,7 +190,7 @@ const {Engine,World,Bodies,Body,Composite,Events,Vertices} = Matter;
 
 const WORLD_W=1760, WORLD_H=720, GROUND_Y=652;
 const SLING_X=215, SLING_Y=548;
-const MAX_DRAG=120, LAUNCH_FORCE=0.15;
+const MAX_DRAG=120, LAUNCH_FORCE=0.126;
 const GRAV=0.167;
 const TICK=16.666;
 
@@ -1049,13 +1049,19 @@ function drawSlingshot(){
   ctx.fillStyle="#4a2c12";
   ctx.beginPath();ctx.arc(x-32,518,3.5,0,7);ctx.fill();
   ctx.beginPath();ctx.arc(x+32,518,3.5,0,7);ctx.fill();
-  const holder=holdingBird||activeBird;
+  const holder=holdingBird;
   if(holder&&holder.game&&holder.game.kind==="bird"){
     const bx=holder.position.x,by=holder.position.y;
     band(x-32,518,bx,by);
     band(x+32,518,bx,by);
     ctx.fillStyle="#3a2410";
     ctx.beginPath();ctx.ellipse(bx,by,holder.circleRadius*0.6,holder.circleRadius*0.5,0,0,7);ctx.fill();
+  }else{
+    const ry=SLING_Y-6;
+    band(x-32,518,x,ry);
+    band(x+32,518,x,ry);
+    ctx.fillStyle="#3a2410";
+    ctx.beginPath();ctx.ellipse(x,ry,10,8,0,0,7);ctx.fill();
   }
 }
 
