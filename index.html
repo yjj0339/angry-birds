@@ -232,6 +232,7 @@ let W=0,H=0,scale=1,camX=0,viewW=1280,dpr=1,cRect=null;
 
 let engine=null,ground=null,slingPost=null;
 let activeBird=null,nextBird=null,holdingBird=null;
+let dragTarget=null;
 let birdQueue=[],birdIdx=0,pigCount=0,alivePigs=0;
 let score=0,usedBirds=0,levelNb=0,isDragging=false,abilityUsed=false;
 let flightTimer=0,settleTimer=0,levelState="idle";
@@ -485,7 +486,7 @@ function resetWorld(){
   engine.velocityIterations=6;
   World.clear(engine.world,false);
   bodies=new Map();pigeons=[];destructibles=[];eggs=[];flightBirds=[];shotActive=false;
-  activeBird=null;nextBird=null;holdingBird=null;
+  activeBird=null;nextBird=null;holdingBird=null;dragTarget=null;
   particles=[];floats=[];
   combo=0;comboTimer=0;slowmoActive=0;timeScale=1;timeScaleTarget=1;
   initAmbBirds();
@@ -546,6 +547,7 @@ function loadBird(){
   if(birdIdx>=birdQueue.length){activeBird=null;return;}
   const type=birdQueue[birdIdx];
   activeBird=spawnSlider(SLING_X,SLING_Y-18,type,type);
+  Body.setStatic(activeBird,true);
   activeBird.game.abilityUsed=false;
   holdingBird=activeBird;
   abilityUsed=false;
@@ -808,19 +810,21 @@ function drag(e){
   if(nx>SLING_X)nx=SLING_X;
   const minY=GROUND_Y-(holdingBird.circleRadius||20)-6;
   if(ny>minY)ny=minY;
-  Body.setPosition(holdingBird,{x:nx,y:ny});
-  Body.setVelocity(holdingBird,{x:0,y:0});
+  if(nx<SLING_X-MAX_DRAG)nx=SLING_X-MAX_DRAG;
+  dragTarget={x:nx,y:ny};
 }
 
 function release(e){
   if(!isDragging||!holdingBird)return;
   isDragging=false;
-  const p=toWorld(e);
+  if(dragTarget)Body.setPosition(holdingBird,{x:dragTarget.x,y:dragTarget.y});
+  dragTarget=null;
   const dx=SLING_X-holdingBird.position.x,dy=SLING_Y-18-holdingBird.position.y;
   const len=Math.hypot(dx,dy);
   if(len<14){Body.setPosition(holdingBird,{x:SLING_X,y:SLING_Y-18});return;}
   const vx=dx*LAUNCH_FORCE,vy=dy*LAUNCH_FORCE;
   const b=holdingBird;
+  Body.setStatic(b,false);
   Body.setVelocity(b,{x:vx,y:vy});
   holdingBird=null;
   activeBird=b;
@@ -865,6 +869,13 @@ function update(dt){
   for(const b of pigeons.slice()){if(b.speed>1)settleTimer=0;}
   for(const b of destructibles.slice()){if(b.speed>2)settleTimer=0;}
   if(activeBird&&holdingBird){camTo(0);}
+  if(holdingBird&&isDragging&&dragTarget){
+    const k=0.7;
+    const nx=holdingBird.position.x+(dragTarget.x-holdingBird.position.x)*k;
+    const ny=holdingBird.position.y+(dragTarget.y-holdingBird.position.y)*k;
+    Body.setPosition(holdingBird,{x:nx,y:ny});
+    Body.setVelocity(holdingBird,{x:0,y:0});
+  }
   if(flightBirds.length>0){
     flightTimer+=dt;
     let allGone=true;
